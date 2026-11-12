@@ -20,6 +20,9 @@ export interface MarketTicker {
   currency?: string;
   country?: string;
   icon?: string;
+  beta?: number;
+  rsi?: number;
+  avgVolume?: string;
 }
 
 export interface CandleData {
@@ -40,10 +43,29 @@ export interface IndicatorSettings {
   showVolume: boolean;
   showRsi: boolean;
   showMacd: boolean;
+  showVolumeProfile: boolean;
+  showStochastic: boolean;
 }
 
-export type ChartType = 'candlestick' | 'line' | 'area' | 'heikinAshi';
+export type ChartType = 'candlestick' | 'line' | 'area' | 'heikinAshi' | 'bars';
 export type TimeFrame = '1m' | '5m' | '15m' | '1H' | '4H' | '1D' | '1W';
+export type MultiChartLayout = '1x1' | '2x1' | '1x2' | '2x2';
+export type DrawingTool = 'crosshair' | 'trend' | 'horizontal' | 'fibonacci' | 'measure';
+
+export interface VolumeProfileBucket {
+  price: number;
+  volume: number;
+  isPOC: boolean; // Point of Control
+  isValueArea: boolean; // 70% Value Area
+}
+
+export interface TimeAndSalesPrint {
+  id: string;
+  time: string;
+  price: number;
+  size: number;
+  side: 'buy' | 'sell';
+}
 
 export interface Order {
   id: string;

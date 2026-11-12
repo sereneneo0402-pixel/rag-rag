@@ -1,4 +1,4 @@
-import { CandleData, TimeFrame } from '../types/market';
+import { CandleData, TimeFrame, VolumeProfileBucket, TimeAndSalesPrint } from '../types/market';
 
 /**
  * Generates realistic historical OHLCV candlestick data for any ticker and timeframe
@@ -6,12 +6,11 @@ import { CandleData, TimeFrame } from '../types/market';
 export function generateCandles(
   basePrice: number,
   timeframe: TimeFrame = '1D',
-  count: number = 80
+  count: number = 90
 ): CandleData[] {
   const candles: CandleData[] = [];
   const now = Date.now();
   
-  // Timeframe in ms
   const timeframeMs: Record<TimeFrame, number> = {
     '1m': 60 * 1000,
     '5m': 5 * 60 * 1000,
@@ -23,10 +22,9 @@ export function generateCandles(
   };
 
   const interval = timeframeMs[timeframe] || 24 * 60 * 60 * 1000;
-  let currentPrice = basePrice * (0.85 + Math.random() * 0.1); // Start slightly lower to trend naturally
+  let currentPrice = basePrice * (0.88 + Math.random() * 0.08);
 
-  // Deterministic volatility based on price scale
-  const volatility = basePrice > 10000 ? 0.012 : basePrice > 1000 ? 0.009 : basePrice < 2 ? 0.004 : 0.015;
+  const volatility = basePrice > 10000 ? 0.012 : basePrice > 1000 ? 0.009 : basePrice < 2 ? 0.004 : 0.014;
 
   for (let i = count - 1; i >= 0; i--) {
     const timestamp = now - i * interval;
@@ -35,19 +33,16 @@ export function generateCandles(
       ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-    // Upward bias with realistic waves
-    const cycle = Math.sin(i / 6) * 0.008;
+    const cycle = Math.sin(i / 5.5) * 0.008;
     const changePct = (Math.random() - 0.485) * volatility * 2 + cycle;
     const open = currentPrice;
     const close = Math.max(0.0001, open * (1 + changePct));
     
-    // High / Low wicks
     const maxVal = Math.max(open, close);
     const minVal = Math.min(open, close);
-    const high = maxVal + Math.random() * maxVal * (volatility * 0.7);
-    const low = Math.max(0.0001, minVal - Math.random() * minVal * (volatility * 0.7));
+    const high = maxVal + Math.random() * maxVal * (volatility * 0.65);
+    const low = Math.max(0.0001, minVal - Math.random() * minVal * (volatility * 0.65));
 
-    // Volume
     const baseVol = basePrice > 1000 ? 2500 : 150000;
     const volume = Math.round(baseVol * (0.6 + Math.random() * 0.8 + Math.abs(changePct) * 20));
 
@@ -64,7 +59,6 @@ export function generateCandles(
     currentPrice = close;
   }
 
-  // Adjust last candle close to match the live basePrice closely
   if (candles.length > 0) {
     const last = candles[candles.length - 1];
     last.close = basePrice;
@@ -108,7 +102,6 @@ export function calculateEMA(data: CandleData[], period: number): (number | null
       continue;
     }
     if (prevEma === null) {
-      // First EMA is SMA
       let sum = 0;
       for (let j = 0; j < period; j++) {
         sum += data[i - j].close;
@@ -209,7 +202,6 @@ export function calculateMACD(data: CandleData[]) {
     }
   }
 
-  // Signal line: 9-period EMA of MACD line
   const validMacd = macdLine.filter((v): v is number => v !== null);
   const signalLineRaw: (number | null)[] = [];
   const k = 2 / (9 + 1);
@@ -230,7 +222,6 @@ export function calculateMACD(data: CandleData[]) {
     signalLineRaw.push(Number(prevSignal.toFixed(2)));
   }
 
-  // Align signal line with full dataset
   const signalLine: (number | null)[] = [];
   const histogram: (number | null)[] = [];
   const offset = data.length - validMacd.length;
@@ -284,4 +275,109 @@ export function convertToHeikinAshi(candles: CandleData[]): CandleData[] {
   }
 
   return haCandles;
+}
+
+/**
+ * Calculates Visible Range Volume Profile (VRVP) - TradingView PRO Signature Feature!
+ * Divides price range into 24 horizontal bins and distributes candle volume,
+ * finding POC (Point of Control) and Value Area (70% highest volume range).
+ */
+export function calculateVolumeProfile(candles: CandleData[], binsCount: number = 24): VolumeProfileBucket[] {
+  if (candles.length === 0) return [];
+
+  const min = Math.min(...candles.map(c => c.low));
+  const max = Math.max(...candles.map(c => c.high));
+  const range = max - min || 1;
+  const binStep = range / binsCount;
+
+  const buckets: { price: number; volume: number }[] = [];
+  for (let i = 0; i < binsCount; i++) {
+    buckets.push({
+      price: min + (i + 0.5) * binStep,
+      volume: 0,
+    });
+  }
+
+  let totalVol = 0;
+  candles.forEach((c) => {
+    // Distribute volume into bins between low and high
+    const lowBin = Math.max(0, Math.min(binsCount - 1, Math.floor((c.low - min) / binStep)));
+    const highBin = Math.max(0, Math.min(binsCount - 1, Math.floor((c.high - min) / binStep)));
+    const count = highBin - lowBin + 1;
+    const volPerBin = c.volume / count;
+
+    for (let b = lowBin; b <= highBin; b++) {
+      buckets[b].volume += volPerBin;
+      totalVol += volPerBin;
+    }
+  });
+
+  // Find POC (Point of Control)
+  let maxVol = 0;
+  let pocIndex = 0;
+  buckets.forEach((b, idx) => {
+    if (b.volume > maxVol) {
+      maxVol = b.volume;
+      pocIndex = idx;
+    }
+  });
+
+  // Find 70% Value Area
+  const sortedBins = [...buckets].sort((a, b) => b.volume - a.volume);
+  let accumulated = 0;
+  const target70 = totalVol * 0.7;
+  const valueAreaPrices = new Set<number>();
+
+  for (const sb of sortedBins) {
+    valueAreaPrices.add(sb.price);
+    accumulated += sb.volume;
+    if (accumulated >= target70) break;
+  }
+
+  return buckets.map((b, idx) => ({
+    price: Number(b.price.toFixed(2)),
+    volume: Math.round(b.volume),
+    isPOC: idx === pocIndex,
+    isValueArea: valueAreaPrices.has(b.price),
+  }));
+}
+
+/**
+ * Calculates Fibonacci Retracement Levels between high and low
+ */
+export function calculateFibonacciLevels(highPrice: number, lowPrice: number) {
+  const diff = highPrice - lowPrice;
+  return [
+    { ratio: '0.0 (High)', price: highPrice, color: '#787b86' },
+    { ratio: '0.236', price: highPrice - diff * 0.236, color: '#f23645' },
+    { ratio: '0.382', price: highPrice - diff * 0.382, color: '#f59e0b' },
+    { ratio: '0.500 (Mid)', price: highPrice - diff * 0.5, color: '#089981' },
+    { ratio: '0.618 (Golden)', price: highPrice - diff * 0.618, color: '#2962ff' },
+    { ratio: '0.786', price: highPrice - diff * 0.786, color: '#a855f7' },
+    { ratio: '1.0 (Low)', price: lowPrice, color: '#787b86' },
+  ];
+}
+
+/**
+ * Generates institutional streaming Time & Sales trade prints
+ */
+export function generateInitialTimeAndSales(currentPrice: number): TimeAndSalesPrint[] {
+  const prints: TimeAndSalesPrint[] = [];
+  const now = Date.now();
+
+  for (let i = 12; i >= 0; i--) {
+    const isBuy = Math.random() > 0.47;
+    const delta = (Math.random() * 0.001) * (isBuy ? 1 : -1);
+    const p = currentPrice * (1 + delta);
+    const date = new Date(now - i * 1800);
+    prints.push({
+      id: `print-${now}-${i}`,
+      time: date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      price: Number(p.toFixed(currentPrice < 2 ? 4 : 2)),
+      size: Math.round(10 + Math.random() * 250),
+      side: isBuy ? 'buy' : 'sell',
+    });
+  }
+
+  return prints;
 }

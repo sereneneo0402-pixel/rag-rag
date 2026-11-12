@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex h-14 items-center justify-between gap-4 px-4 lg:px-6">
         
         {/* Zone 1: TradingView Brand & Markets Wordmark */}
-        <div className="flex items-center gap-6 shrink-0">
+        <div className="flex items-center gap-3 sm:gap-6 shrink-0">
           <button 
             onClick={() => onSelectScreen('overview')}
             className="flex items-center gap-2.5 text-left group focus-visible:outline-none"
@@ -47,9 +47,14 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className="font-bold tracking-tight text-white text-base">TradingView</span>
-              <span className="text-xs font-semibold text-[#787b86] uppercase tracking-wider">Markets</span>
+              <span className="text-[10px] font-bold text-amber-400 bg-amber-400/15 border border-amber-400/30 px-1 rounded uppercase tracking-wider">PRO+</span>
             </div>
           </button>
+
+          <div className="hidden xl:flex items-center gap-1.5 text-[10px] font-mono text-[#787b86] pl-2 border-l border-[#2a2e39]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>FEED: CBOE & CME DIRECT</span>
+          </div>
         </div>
 
         {/* Zone 2: Navigation Links (Single-Line 4-5 items) */}

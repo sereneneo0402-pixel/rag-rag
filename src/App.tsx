@@ -6,6 +6,7 @@ import { TickerRibbon } from './components/TickerRibbon';
 import { SymbolSearchModal } from './components/SymbolSearchModal';
 import { MarketOverview } from './components/Overview/MarketOverview';
 import { SuperChart } from './components/Chart/SuperChart';
+import { ProMultiChartStudio } from './components/Chart/ProMultiChartStudio';
 import { TradingPanel } from './components/Chart/TradingPanel';
 import { MarketScreener } from './components/Screener/MarketScreener';
 import { MarketHeatmap } from './components/Heatmap/MarketHeatmap';
@@ -231,7 +232,10 @@ export default function App() {
     });
   };
 
-  const handleOpenTrading = (side: 'buy' | 'sell') => {
+  const handleOpenTrading = (side: 'buy' | 'sell', customTicker?: MarketTicker, customPrice?: number, customQty?: number) => {
+    if (customTicker) {
+      setSelectedTicker(customTicker);
+    }
     setTradingSide(side);
     setIsTradingOpen(true);
   };
@@ -367,8 +371,9 @@ export default function App() {
         )}
 
         {currentScreen === 'chart' && (
-          <SuperChart
-            ticker={selectedTicker}
+          <ProMultiChartStudio
+            primaryTicker={selectedTicker}
+            allTickers={tickers}
             onOpenTrading={handleOpenTrading}
             onOpenSearch={() => setIsSearchOpen(true)}
           />

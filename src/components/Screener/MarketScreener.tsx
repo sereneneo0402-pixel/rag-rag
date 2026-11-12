@@ -25,6 +25,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({
   const [sortField, setSortField] = useState<keyof MarketTicker>('marketCap');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [activePreset, setActivePreset] = useState<string>('all');
+  const [techFilter, setTechFilter] = useState<'all' | 'momentum' | 'oversold'>('all');
 
   // Available sectors from data
   const sectors = useMemo(() => {
@@ -53,10 +54,15 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({
       // Rating
       if (selectedRating !== 'all' && t.rating !== selectedRating) return false;
 
+      // Pro Technical filter
+      if (techFilter === 'momentum' && t.changePercent <= 1) return false;
+      if (techFilter === 'oversold' && t.changePercent >= 0) return false;
+
       // Presets
       if (activePreset === 'gainers' && t.changePercent < 2) return false;
       if (activePreset === 'mega' && (!t.marketCap || !t.marketCap.includes('T'))) return false;
       if (activePreset === 'strong_buy' && t.rating !== 'Strong Buy') return false;
+      if (activePreset === 'golden' && (t.rating !== 'Strong Buy' || t.changePercent <= 0)) return false;
 
       return true;
     }).sort((a, b) => {
@@ -131,12 +137,13 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({
 
         {/* Quick Presets */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs text-[#787b86] mr-1">Presets:</span>
+          <span className="text-xs text-[#787b86] mr-1">PRO Presets:</span>
           {[
-            { id: 'all', label: 'All Instruments' },
+            { id: 'all', label: 'All' },
+            { id: 'golden', label: 'Golden Cross Momentum' },
             { id: 'gainers', label: 'Gainers >2%' },
             { id: 'mega', label: 'Trillion Club ($1T+)' },
-            { id: 'strong_buy', label: 'Strong Buy Ratings' },
+            { id: 'strong_buy', label: 'Strong Buy' },
           ].map((preset) => (
             <button
               key={preset.id}
@@ -162,7 +169,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({
 
       {/* Filter Control Box */}
       <div className="bg-[#1e222d] border border-[#2a2e39] rounded-xl p-4 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
           
           {/* Search query */}
           <div className="relative">
@@ -213,11 +220,24 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({
               onChange={(e) => setSelectedRating(e.target.value)}
               className="w-full bg-[#131722] border border-[#2a2e39] rounded-lg px-3 py-2 text-xs text-white focus:border-[#2962ff] focus:outline-none"
             >
-              <option value="all">All Technical Ratings</option>
+              <option value="all">All Ratings</option>
               <option value="Strong Buy">Strong Buy</option>
               <option value="Buy">Buy</option>
               <option value="Neutral">Neutral</option>
               <option value="Sell">Sell</option>
+            </select>
+          </div>
+
+          {/* Technical Strategy */}
+          <div>
+            <select
+              value={techFilter}
+              onChange={(e) => setTechFilter(e.target.value as any)}
+              className="w-full bg-[#131722] border border-[#2a2e39] rounded-lg px-3 py-2 text-xs text-white focus:border-[#2962ff] focus:outline-none font-semibold text-[#2962ff]"
+            >
+              <option value="all">All Strategies</option>
+              <option value="momentum">Momentum Trend (+1% &gt;)</option>
+              <option value="oversold">Dip / Oversold Pullback</option>
             </select>
           </div>
         </div>

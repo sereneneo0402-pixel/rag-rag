@@ -39,6 +39,8 @@ export const SuperChart: React.FC<SuperChartProps> = ({
     showVolume: true,
     showRsi: true,
     showMacd: false,
+    showVolumeProfile: false,
+    showStochastic: false,
   });
 
   const [activeDrawingTool, setActiveDrawingTool] = useState<'crosshair' | 'horizontal' | 'trend' | null>('crosshair');
